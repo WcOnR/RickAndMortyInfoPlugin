@@ -1,0 +1,2 @@
+## Rick and Morty info
+**Rick and Morty info** - is plugin for unreal engine 4.26. The plugin allows you to get information about the characters of the Rick and Morty series. The plugin use REST API https://rickandmortyapi.com/
