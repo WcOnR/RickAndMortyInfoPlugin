@@ -47,6 +47,7 @@ void URMCharacterDataRequest::OnMainRequestComplete(FHttpRequestPtr Request, FHt
 		FString AvatarUrl;
 		if (Json->TryGetStringField(FString("image"), AvatarUrl))
 		{
+			bImageParsingDone = false;
 			ImgRequest->SetURL(AvatarUrl);
 			ImgRequest->ProcessRequest();
 		}
@@ -61,6 +62,11 @@ void URMCharacterDataRequest::OnMainRequestComplete(FHttpRequestPtr Request, FHt
 		if (Json->TryGetObjectField(FString("location"), LocationData))
 			(*LocationData)->TryGetStringField(FString("name"), Data.LocationName);
 	}
+	else
+	{
+		UE_LOG(LogRMCharacterRequest, Error, TEXT("Main data deserialization failed!"));
+		SendResult(Response, false);
+	}
 	ConstructEpisodesRequest();
 }
 
@@ -72,7 +78,8 @@ void URMCharacterDataRequest::OnImgRequestComplete(FHttpRequestPtr Request, FHtt
 		return;
 	}
 	Data.Image = FImageUtils::ImportBufferAsTexture2D(Response->GetContent());
-	if (EpisodesRequest->GetStatus() == EHttpRequestStatus::Succeeded)
+	bImageParsingDone = true;
+	if (bEpisodesParsingDone)
 		SendResult(Response, true);
 }
 
@@ -96,18 +103,19 @@ void URMCharacterDataRequest::OnEpisodeRequestComplete(FHttpRequestPtr Request, 
 			Data.Episode.SetNum(Episodes->Num());
 			for (int32 i = 0; i < Episodes->Num(); ++i)
 			{
+				Data.Episode[i].Empty();
 				if (auto EpisodeObj = (*Episodes)[i]->AsObject())
-				{
 					EpisodeObj->TryGetStringField(FString("name"), Data.Episode[i]);
-				}
-				else
-				{
-					Data.Episode[i].Empty();
-				}
 			}
+			bEpisodesParsingDone = true;
 		}
 	}
-	if (ImgRequest->GetStatus() == EHttpRequestStatus::Succeeded)
+	if (!bEpisodesParsingDone)
+	{
+		UE_LOG(LogRMCharacterRequest, Error, TEXT("Episodes data deserialization failed!"));
+		SendResult(Response, false);
+	}
+	if (bImageParsingDone)
 		SendResult(Response, true);
 }
 
@@ -119,6 +127,7 @@ void URMCharacterDataRequest::ConstructEpisodesRequest()
 	{
 		EpisodesRequestUrl += EpisodeUrl.Mid(PrefixLength) + ",";
 	}
+	bEpisodesParsingDone = false;
 	EpisodesRequest->SetURL(EpisodesRequestUrl);
 	EpisodesRequest->ProcessRequest();
 }
@@ -139,5 +148,7 @@ void URMCharacterDataRequest::SendResult(FHttpResponsePtr Response, bool bWasSuc
 	}
 	ResultCallback.ExecuteIfBound(Data, bWasSuccessful);
 	Data = FRMCharacterData();
+	bImageParsingDone = true;
+	bEpisodesParsingDone = true;
 	OnRequestIsFree.ExecuteIfBound(this);
 }

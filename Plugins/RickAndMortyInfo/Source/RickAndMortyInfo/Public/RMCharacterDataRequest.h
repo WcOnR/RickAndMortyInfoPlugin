@@ -42,6 +42,9 @@ protected:
 	FHttpRequestPtr ImgRequest;
 	FHttpRequestPtr EpisodesRequest;
 
+	bool bImageParsingDone = true;
+	bool bEpisodesParsingDone = true;
+
 	FRMCharacterData Data;
 	FRMCharacterDataRequestDelegate ResultCallback;
 };
